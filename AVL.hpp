@@ -1,314 +1,390 @@
-/**
- * Implementacja drzewa AVL
- */
-#include<iostream>
-#include<cstdio>
-#include<sstream>
-#include<algorithm>
-
-#define pow2(n) (1 << (n))
+#include <iostream>
+#include <algorithm>
 
 using namespace std;
 
-template <class T> class avl_node;
-template <class T> class avlTree;
-
-template <class T>
-class avl_node{
+//Node Class
+template <typename T>
+class AVLnode{
     public:
-        T data;
-        class avl_node *left;
-        class avl_node *right;
+        T key;
+        int balance;
+        AVLnode *left, *right, *parent;
+        AVLnode(T k, AVLnode *p){
+            this->key = k;
+            this->balance = 0;
+            this->parent = p;
+            this->left = NULL;
+            this->right = NULL;
+        }
         
-    ~avl_node(){
-        delete left;
-        delete right;
-    }
-
+        ~AVLnode(){
+            delete left;
+            delete right;
+        }
 };
 
-
-template <class T>
-class avlTree{
-
-    public:
-        avl_node<T> *root;
-        int height(avl_node<T> *);
-        int diff(avl_node<T> *);
-        avl_node<T> *rr_rotation(avl_node<T> *);
-        avl_node<T> *ll_rotation(avl_node<T> *);
-        avl_node<T> *lr_rotation(avl_node<T> *);
-        avl_node<T> *rl_rotation(avl_node<T> *);
-        avl_node<T> *balance(avl_node<T> *);
-        avl_node<T> *insert(avl_node<T> *, T);
-        avl_node<T> *copyHelper(const avl_node<T> *);
-        avl_node<T> *search(avl_node<T> *, T);
-        T deleteMin(avl_node<T> *);
-        avl_node<T> *findMin(avl_node<T> *);
-        void makeEmpty(avl_node<T> *);
-        void remove(avl_node<T> *, const T);
-        void display(avl_node<T> *, int);
-        void inorder(avl_node<T> *);
-        void preorder(avl_node<T> *);
-        void postorder(avl_node<T> *);
-        void endTree(avl_node<T> *);
+//Tree class
+template <typename T>
+class AVLtree{
+    public:        
+        AVLtree(const AVLtree& source);
+        //AVLtree& operator=(const AVLtree& source);
+        AVLnode<T>* insert(T key);
+        AVLnode<T>* search(AVLnode<T>* current, const T &arg) const;
+        void deleteKey(const T key);
+        void printBalance();
+        void makeEmpty(AVLnode<T>* &start);
+        void inorder(AVLnode<T>* root);
+        void rebalance(AVLnode<T>*);
+        int height(AVLnode<T>*);
+        void setBalance(AVLnode<T>*);
+        void printBalance(AVLnode<T>*);
+        void clearNode(AVLnode<T>*);
         
-        avlTree(){
-            root = NULL;
+        AVLnode<T> *root;
+        
+    private:        
+        AVLnode<T>* rotateLeft(AVLnode<T>*);
+        AVLnode<T>* rotateRight(AVLnode<T>*);
+        AVLnode<T>* rotateLeftRight(AVLnode<T>*);
+        AVLnode<T>* rotateRightLeft(AVLnode<T>*);
+    
+    public:    
+    
+        AVLtree(){
+            this->root = NULL;
         }
         
-        avlTree(const avlTree &toCopy){
-            root = copyHelper(toCopy.root);
-        }
-        
-        avlTree& operator=(const avlTree &toAssign){
-            if(&toAssign == this){ return *this; }
-            delete root;
-            this->root = 0;
-            if(toAssign.root){
-                root = copyHelper(toAssign.root);
+        AVLtree& operator=(const AVLtree& source){
+            if(&source == this) return *this;
+            this.makeEmpty(this->root);
+            Iterator source_itr;
+            source_itr = source.begin();
+            for(source_itr; source_itr != source.end(); source_itr++){
+                insert(*source_itr);
             }
-            return *this;
         }
         
-        //konstruktor przenoszacy dodac
-        
-        ~avlTree(){
-            endTree(root);
+        ~AVLtree(){
+            delete root;
         }
-
+        
+        class Iterator{
+            private:
+                AVLnode<T>* current = nullptr;
+                    
+            public:
+                Iterator(){};
+                Iterator(AVLnode<T>* const begin){
+                    current = begin;
+                }               
+                
+                //Assignment constructor
+                Iterator operator=(const Iterator& source){
+                    if(this == &source)
+                        return *this;
+                        
+                    this->current = source.current;
+                    return *this; 
+                }
+                    
+                bool operator==(const Iterator& i){
+                    return current == i.current;
+                }
+                    
+                bool operator!=(const Iterator& i){
+                    return current != i.current;
+                }
+                    
+                Iterator& operator++(){
+                    if(current->right){
+                        current = current->right;
+                        while(current->left){
+                            current = current->left;
+                        }
+                    } else {
+                        while(current->parent && current == current->parent->right){
+                            current = current->parent;
+                        }
+                        current = current->parent;
+                    }
+                }
+                    
+                Iterator operator++(int){
+                    Iterator temp (*this);
+                    ++(*this);
+                    return temp;
+                }
+                    
+                T& operator *();
+                T* operator->();
+        };
+            
+        const Iterator begin() const;
+        const Iterator end() const;
 };
 
-
-//Rekurencyjne kopiowanie wezlow do drzewa AVL
+/**
+ * AVL class functions
+ */
+ 
+//AVL copy constructor
 template <typename T>
-avl_node<T> *copyHelper(const avl_node<T> *toCopy){
-    if (toCopy == NULL)
-	return NULL;
-    avl_node<T> *copyNode = new avl_node<T>;
-    copyNode->data = toCopy->data;
-    copyNode->left = copyHelper(toCopy->left);
-    copyNode->right = copyHelper(toCopy->right);
-    return copyNode;
-}
-
-
-template <typename T>
-void avlTree<T>::endTree(avl_node<T> *node){
-    if(node){
-        endTree(node->left);
-        endTree(node->right);
-        delete node;
+AVLtree<T>::AVLtree(const AVLtree<T>& source){
+    root = nullptr;
+    Iterator source_itr, wall;
+    source_itr = source.begin();
+    for(source_itr; source_itr != source.end(); source_itr++){
+        insert(*source_itr);
     }
 }
 
 template <typename T>
-int avlTree<T>::height(avl_node<T> *temp){
-    int h = 0;
-    if (temp != NULL){
-        int l_height = height (temp->left);
-        int r_height = height (temp->right);
-        int max_height = max (l_height, r_height);
-        h = max_height + 1;
+void AVLtree<T>::inorder(AVLnode<T>* root){
+    if (root == nullptr)
+        return;
+    inorder (root->left);
+    cout<<root->key<<" ";
+    inorder (root->right);
+}
+ 
+//rebalance
+template <typename T>
+void AVLtree<T>::rebalance(AVLnode<T> *arg){
+    setBalance(arg);
+    
+    if(arg->balance == -2){
+        if(height(arg->left->left) >= height(arg->left->right))
+            arg = rotateRight(arg);
+        else
+            arg = rotateLeftRight(arg);
+    } else if(arg->balance == 2){
+        if(height(arg->right->right) >= height(arg->right->left))
+            arg = rotateLeft(arg);
+        else
+            arg = rotateRightLeft(arg);
     }
     
-    return h;
+    if(arg->parent != NULL){
+        rebalance(arg->parent);
+    } else {
+        this->root = arg;
+    }
 }
 
 template <typename T>
-int avlTree<T>::diff(avl_node<T> *temp){
-    int l_height = height (temp->left);
-    int r_height = height (temp->right);
-    int b_factor= l_height - r_height;
-    return b_factor;
+void AVLtree<T>::makeEmpty(AVLnode<T>* &start){
+    if(start != nullptr){
+        makeEmpty(start->left);
+        makeEmpty(start->right);
+        free(start);
+    }
+    start == nullptr;
 }
 
-
+//left rotate
 template <typename T>
-avl_node<T> *avlTree<T>::rr_rotation(avl_node<T> *parent){
-    avl_node<T> *temp;
-    temp = parent->right;
-    parent->right = temp->left;
-    temp->left = parent;
-    return temp;
-}
-
-template <typename T>
-avl_node<T> *avlTree<T>::ll_rotation(avl_node<T> *parent){
-    avl_node<T> *temp;
-    temp = parent->left;
-    parent->left = temp->right;
-    temp->right = parent;
-    return temp;
-}
-
-template <typename T>
-avl_node<T> *avlTree<T>::lr_rotation(avl_node<T> *parent){
-    avl_node<T> *temp;
-    temp = parent->left;
-    parent->left = rr_rotation (temp);
-    return ll_rotation (parent);
-}
-
-template <typename T>
-avl_node<T> *avlTree<T>::rl_rotation(avl_node<T> *parent){
-    avl_node<T> *temp;
-    temp = parent->right;
-    parent->right = ll_rotation (temp);
-    return rr_rotation (parent);
-}
-
-template <typename T>
-avl_node<T> *avlTree<T>::balance(avl_node<T> *temp){
-    int bal_factor = diff(temp);
-    if (bal_factor > 1){
-        if (diff (temp->left) > 0){
-            temp = ll_rotation (temp);
-        }else{
-            temp = lr_rotation (temp);
-        }
-    }else if(bal_factor < -1){
-        if (diff (temp->right) > 0){
-            temp = rl_rotation (temp);
-        }else{
-            temp = rr_rotation (temp);
+AVLnode<T>* AVLtree<T>::rotateLeft(AVLnode<T> *arg){
+    AVLnode<T> *temp = arg->right;
+    temp->parent = arg->parent;
+    arg->right = temp->left;
+    
+    if(arg->right != NULL)
+        arg->right->parent = arg;
+    
+    temp->left = arg;
+    arg->parent = temp;
+    
+    if(temp->parent != NULL){
+        if(temp->parent->right == arg){
+            temp->parent->right = temp;
+        } else {
+            temp->parent->left = temp;
         }
     }
+    
+    setBalance(arg);
+    setBalance(temp);
     return temp;
 }
 
+//right rotate
 template <typename T>
-avl_node<T> *avlTree<T>::insert(avl_node<T> *root, T value){
-    if (root == NULL){
-        root = new avl_node<T>;
-        root->data = value;
-        root->left = NULL;
-        root->right = NULL;
-        return root;
-    }else if (value < root->data){
-        root->left = insert(root->left, value);
-        root = balance (root);
-    }else if (value >= root->data){
-        root->right = insert(root->right, value);
-        root = balance (root);
+AVLnode<T>* AVLtree<T>::rotateRight(AVLnode<T> *arg){
+    AVLnode<T> *temp = arg->left;
+    temp->parent = arg->parent;
+    arg->left = temp->right;
+    
+    if(arg->left != NULL)
+        arg->left->parent = arg;
+    
+    temp->right = arg;
+    arg->parent = temp;
+    
+    if(temp->parent != NULL){
+        if(temp->parent->right == arg){
+            temp->parent->right = temp;
+        } else {
+            temp->parent->left = temp;
+        }
     }
+    
+    setBalance(arg);
+    setBalance(temp);
+    return temp;
+}
+
+//left and right rotate
+template <typename T>
+AVLnode<T>* AVLtree<T>::rotateLeftRight(AVLnode<T> *arg){
+    arg->left = rotateLeft(arg->left);
+    return rotateRight(arg);
+}
+
+//right and left rotate
+template <typename T>
+AVLnode<T>* AVLtree<T>::rotateRightLeft(AVLnode<T> *arg){
+    arg->left = rotateRight(arg->left);
+    return rotateLeft(arg);
+}
+
+//height
+template <typename T>
+int AVLtree<T>::height(AVLnode<T> *arg){
+    if(arg == NULL)
+        return -1;
+    return 1 + std::max(height(arg->left), height(arg->right));
+}
+
+//setBalance
+template <typename T>
+void AVLtree<T>::setBalance(AVLnode<T> *arg){
+    arg->balance = height(arg->right) - height(arg->left);
+}
+
+//Print balance factor
+template <typename T>
+void AVLtree<T>::printBalance(AVLnode<T> *arg){
+    if(arg != NULL){
+        printBalance(arg->left);
+        cout << arg->balance << " ";
+        printBalance(arg->right);
+    }
+}
+
+//insert element
+template <typename T>
+AVLnode<T>* AVLtree<T>::insert(T key){
+    if(root == NULL){
+        root = new AVLnode<T>(key, NULL);
+    } else {
+        AVLnode<T>
+            *temp = root,
+            *parent;
+        
+        while(true){
+            if(temp->key == key)
+                return nullptr;
+            
+            parent = temp;
+            
+            bool goLeft = temp->key > key;
+            temp = goLeft ? temp->left : temp->right;
+            
+            if(temp == NULL){
+                if(goLeft){
+                    parent->left = new AVLnode<T>(key, parent);
+                } else {
+                    parent->right = new AVLnode<T>(key, parent);
+                }
+                
+                rebalance(parent);
+                break;
+            }
+        }
+    }
+    
     return root;
 }
 
+//delete
 template <typename T>
-void avlTree<T>::display(avl_node<T> *ptr, int level){
-    int i;
-    if (ptr!=NULL){
-        display(ptr->right, level + 1);
-        printf("\n");
-        if (ptr == root)
-        cout<<"Root -> ";
-        for (i = 0; i < level && ptr != root; i++){
-            cout<<"        ";
-        }
-        cout<<ptr->data;
-        display(ptr->left, level + 1);
-    }
-}
-
-template <typename T>
-void avlTree<T>::inorder(avl_node<T> *tree){
-    if (tree == NULL)
-        return;
-    inorder (tree->left);
-    cout<<tree->data<<"  ";
-    inorder (tree->right);
-}
-
-template <typename T>
-void avlTree<T>::preorder(avl_node<T> *tree){
-    if (tree == NULL)
+void AVLtree<T>::deleteKey(const T delKey){
+    if(root == NULL)
         return;
     
-    cout << tree->data << "  ";
-    preorder (tree->left);
-    preorder (tree->right);
-}
-
-template <typename T>
-void avlTree<T>::postorder(avl_node<T> *tree){
-    if (tree == NULL)
-        return;
-    postorder ( tree ->left );
-    postorder ( tree ->right );
-    cout << tree->data << "  ";
-}
-
-template <typename T>
-avl_node<T>* avlTree<T>::search(avl_node<T> *tree, T key){
-    if(tree == NULL){
-        return NULL;
-    } else {
-        if(key < tree->data){
-            search(tree->left, key);
-        } else if(key > tree->data){
-            search(tree->right, key);
-        } else if(key == tree->data){
-            return tree;
-        }
-        return NULL;
-    }
-}
-
-template <typename T>
-void avlTree<T>::makeEmpty(avl_node<T> *tree){
-    avl_node<T> *d;
-    if(tree != NULL){
-        makeEmpty(tree->left);
-        makeEmpty(tree->right);
-        d = tree;
-        free(d);
-        tree = NULL;
-    }
-}
-
-template <typename T>
-void avlTree<T>::remove(avl_node<T> *tree, T key){
-    avl_node<T> *d;
-    if(tree == NULL){
-        cout << "Element not found in AVL Tree" << endl;
-    } else if(key < tree->data){
-        remove(tree->left, key);
-    } else if(key > tree->data){
-        remove(tree->right, key);
-    } else if((tree->left == NULL) && (tree->right == NULL)){
-        d = tree;
-        free(d);
-        tree = NULL;
-    } else if(tree->left = NULL){
-        d = tree;
-        tree = tree->left;
-        free(d);
-    } else {
-        tree->data = deleteMin(tree->right);
+    AVLnode<T>
+        *temp = root,
+        *parent = root,
+        *delNode = NULL,
+        *child = root;
+        
+    while(child != NULL){
+        parent = temp;
+        temp = child;
+        child = delKey >= temp->key ? temp->right : temp->left;
+        if(delKey == temp->key)
+            delNode = temp;
     }
     
-}
-
-template <typename T>
-T avlTree<T>::deleteMin(avl_node<T> *tree){
-    T temp;
-    if(tree->left == NULL){
-        temp = tree->data;
-        tree = tree->right;
-        return temp;
-    } else {
-        temp = deleteMin(tree->left);
-        return temp;
+    if(delNode != NULL){
+        delNode->key = temp->key;
+        child = temp->left != NULL ? temp->left : temp->right;
+        
+        if(root->key == delKey){
+            root = child;
+        } else {
+            if(parent->left == temp){
+                parent->left = child;
+            } else {
+                parent->right = child;
+            }
+            
+            rebalance(parent);
+        }
     }
 }
 
+//search function
 template <typename T>
-avl_node<T> *avlTree<T>::findMin(avl_node<T> *tree){
-    if(tree->left != NULL){
-        findMin(tree->left);
-    } else {
-        return tree;
-    }
-    return NULL;
+AVLnode<T>* AVLtree<T>::search(AVLnode<T>* current, const T &arg) const{
+    if(current == nullptr)
+        return current;
+    
+    if(arg == current->key)
+        return current;
+    else if(arg < current->key)
+        return search(current->left, arg);
+    else
+        return search(current->right, arg);
 }
+
+//print the balance
+template <typename T>
+void AVLtree<T>::printBalance(){
+    printBalance(root);
+    cout << endl;
+}
+
+//Begin and end for the iterator
+template <typename T>
+const typename AVLtree<T>::Iterator AVLtree<T>::begin() const{
+    AVLnode<T> *temp = root;
+    while(temp->left != nullptr){
+        temp = temp->left;
+    }
+    return Iterator(temp);
+}
+
+template <typename T>
+const typename AVLtree<T>::Iterator AVLtree<T>::end() const{
+    return Iterator(nullptr);
+}
+
+//additional operators for the iterator
+template <typename T>
+T& AVLtree<T>::Iterator::operator *(){return current->key;}
+
+template <typename T>
+T* AVLtree<T>::Iterator::operator->(){return (&current->key);}
