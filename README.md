@@ -5,7 +5,11 @@ Contains various coursework and self-made Datastructures and Algorithms
 
 2. Set.cpp
   Implementation of a SET in C++ complete with a testing module
-  TODO: rewrite iterators into stack-based iteration
   
 3. Fibheap.py
   Implemenatation of a Fibonacci Heap in Python 2.7
+  
+4. Graph
+  Graph implementation in C++ using a vector adjacency matrix with DFS and BFS iterators
+  includes test code.
+  TODO: update with working Dijkstra algorithm
