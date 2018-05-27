@@ -12,4 +12,5 @@ Contains various coursework and self-made Datastructures and Algorithms
 4. Graph
   Graph implementation in C++ using a vector adjacency matrix with DFS and BFS iterators
   includes test code.
-  TODO: update with working Dijkstra algorithm
+
+5. Dijkstra's algorithm for finding shortest path in a graph
